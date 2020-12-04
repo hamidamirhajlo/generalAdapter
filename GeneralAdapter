@@ -1,0 +1,182 @@
+package com.example.relational
+
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.core.view.children
+import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers.IO
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import java.net.URL
+import kotlin.reflect.full.declaredMemberProperties
+
+
+class GeneralAdapter(private val resLayoutId: Int) :
+    RecyclerView.Adapter<GeneralAdapter.GeneralViewHolder>() {
+
+    private var item: Any? = null
+    var layout: ViewGroup? = null
+    var holder: GeneralViewHolder?=null
+
+    private var oldList: MutableList<Any> = mutableListOf()
+
+    fun submitList(list: List<Any>) {
+        if (!list.isNullOrEmpty()) {
+            item = list[0].javaClass
+
+
+            oldList.clear()
+
+            oldList.addAll(list)
+            notifyDataSetChanged()
+        }
+    }
+
+
+/*
+    fun addItem(item: T, onTop: Boolean = false) {
+        if (!onTop) {
+            list.add(item)
+            notifyItemInserted(list.size - 1)
+        } else {
+            list.add(0, item)
+            notifyItemInserted(0)
+        }
+    }
+
+    fun delItem(item: T) {
+        list.remove(item)
+        notifyItemRemoved(list.lastIndexOf(item))
+    }*/
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GeneralViewHolder {
+        println("GeneralAdapter.onCreateViewHolder")
+
+        val vh = GeneralViewHolder.create(parent, resLayoutId)
+        return vh
+    }
+
+    override fun getItemCount(): Int = oldList.size ?: 0
+
+    override fun getItemViewType(position: Int): Int = position
+
+    override fun onBindViewHolder(holder: GeneralViewHolder, position: Int) {
+        holder.bind(oldList[position])
+
+        holder.itemView.setOnClickListener {
+
+        }
+    }
+
+    class GeneralViewHolder(private val parent: View) : RecyclerView.ViewHolder(parent) {
+
+        // region params an views
+
+        val rootView: ViewGroup = parent as ViewGroup
+        private val viewList = mutableListOf<View>()
+        private val viewGroupList = mutableListOf<ViewGroup>().apply {
+            add(rootView)
+        }
+        private val paramAndValues = hashMapOf<String, String>()
+
+
+        private fun getViews(rootView: ViewGroup): List<View> {
+
+            rootView.children.iterator().forEach { view ->
+                if (view !is ViewGroup) {
+                    viewList.add(view)
+                } else {
+                    //viewGroupList.add(view)
+                    getViews(view)
+                }
+            }
+
+            return viewList
+        }
+
+        private fun getParamAndValues(item: Any): HashMap<String, String> {
+
+/*
+            for (property in model::class.declaredMemberProperties) {
+
+                if (
+                    property.returnType == List::class.createType() ||
+                    property.returnType != Int::class.createType() ||
+                    property.returnType != Float::class.createType() ||
+                    property.returnType != Boolean::class.createType() ||
+                    property.returnType != Double::class.createType() ||
+                    property.returnType != Short::class.createType() ||
+                    property.returnType != Collections::class.createType() ||
+                    property.returnType != Char::class.createType()
+                ){
+                    println(property.name)
+                }
+            }
+*/
+
+
+            item::class.declaredMemberProperties.forEach { element ->
+
+                paramAndValues[element.name] = element.call(item).toString()
+
+            }
+
+            return paramAndValues
+        }
+
+        //endregion
+
+
+        fun bind(item: Any) {
+
+            getViews(rootView).forEach { view ->
+                getParamAndValues(item).keys.forEach { fieldName ->
+
+                    if (view.tag != null && view.tag.toString() == fieldName) {
+                        assignValue(view, fieldName)
+                    }
+
+                }
+            }
+
+
+        }
+
+        private fun assignValue(view: View, fieldName: String) {
+            when (view) {
+                is TextView -> view.text = paramAndValues[fieldName].toString()
+                is ImageView -> {
+                    GlobalScope.launch(IO) {
+                        //loadImage(view, URL(paramAndValues[fieldName]))
+                    }
+
+                }
+            }
+        }
+
+        private suspend fun loadImage(imageView: ImageView, url: URL) {
+            var bmp: Any? = null
+
+            bmp = BitmapFactory.decodeStream(url.openConnection().getInputStream())
+
+            imageView.setImageBitmap(bmp as Bitmap?)
+        }
+
+
+        companion object {
+            fun create(parent: ViewGroup, resLayoutId: Int): GeneralViewHolder {
+                val view: View = LayoutInflater.from(parent.context)
+                    .inflate(resLayoutId, parent, false)
+
+                return GeneralViewHolder(view)
+            }
+        }
+
+    }
+}
+
